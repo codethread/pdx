@@ -34,13 +34,14 @@ add = ["envy-workflow"]
 
 [agents.pandora.harness]
 kind = "pi"
-model = "deepseek/deepseek-v4-pro"
+model = "openai-codex/gpt-5.5:low"
+# model = "deepseek/deepseek-v4-pro"
 system_prompt_mode = "replace"
 tools.add = ["bash", "read"]
 argv.add = [
   "--name", "Pandora",
   "--agent", "main",
-  "--emote", "red",
+  "--emote", "aza_choi",
   "--skill", "$PDX_USER_DATA_DIR/pandora-skills"
 ]
 
@@ -61,7 +62,7 @@ system_prompt_mode = "append"
 argv.add = [
   "--name", "Greed",
   "--agent", "main",
-  "--emote", "aza_choi",
+  "--emote", "red",
   "--skill", "$PDX_USER_DATA_DIR/greed-skills"
 ]
 
