@@ -219,31 +219,6 @@ system_prompt_mode = "replace"
 argv.add = ["--skill", "$PDX_USER_DATA_DIR/greed-skills"]
 ```
 
-For Pi extensions/packages that need more than a bare skill folder — for example skills plus swarms or extension runtime behavior — point `--extension` at the package root:
-
-```toml
-[agents.envy.harness]
-kind = "pi"
-model = "openai-codex/gpt-5.4"
-system_prompt_mode = "append"
-argv.add = ["--extension", "$PDX_USER_DATA_DIR/envy-plugin"]
-```
-
-Example Pi extension/plugin layout:
-
-```text
-<user-data-dir>/
-  envy-plugin/
-    skills/
-      clarify-judge/
-        SKILL.md
-    swarms/
-      clarify-panel/
-        swarm.json
-        literalist-reader.md
-        minimalist-reader.md
-```
-
 For Claude, expose the same kind of skills through a plugin dir and enable the `Skill` tool:
 
 ```toml

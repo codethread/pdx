@@ -109,9 +109,13 @@ argv.add = [
 #: rules {{{
 
 [[rules]]
+path = "/Users/adamhall/.pdx"
+agents.pandora.harness.argv.add = ["--skill", "/Users/adamhall/work/me/workfiles/pdx/pandora-skills"]
+agents.pandora.policy.add = ["work-perkbox"]
+
+[[rules]]
 path_glob = "~/work/**"
 policy.add = ["work-perkbox"]
-agents.pandora.harness.argv.add = ["--skill", "/Users/adamhall/work/me/workfiles/pdx/pandora-skills"]
 agents.toil.policy.add = ["work-repo-default-branch-guard"]
 agents.greed.policy.add = ["work-repo-default-branch-guard"]
 agents.envy.policy.add = ["work-envy-glab-triage"]
@@ -120,7 +124,6 @@ agents.greed.harness.model = "anthropic/claude-opus-4-6:high"
 [[rules]]
 path_glob = "~/pb/**"
 policy.add = ["work-perkbox"]
-agents.pandora.harness.argv.add = ["--skill", "/Users/adamhall/work/me/workfiles/pdx/pandora-skills"]
 agents.toil.policy.add = ["work-repo-default-branch-guard"]
 agents.greed.policy.add = ["work-repo-default-branch-guard"]
 agents.envy.policy.add = ["work-envy-glab-triage"]
