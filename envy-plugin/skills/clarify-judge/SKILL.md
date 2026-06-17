@@ -11,7 +11,7 @@ description: >
 
 `clarify` measures ambiguity; it does not resolve material ambiguity. Envy stays faithful to the source brief and records what the reader panel shows.
 
-Use the Pi `clarify-panel` swarm to fan out independent interpretations. The panel members are intentionally isolated:
+Use the Pi `clarify-panel` agent swarm to fan out independent interpretations. The panel members are intentionally isolated:
 
 - literalist reader
 - minimalist reader

@@ -1,19 +1,18 @@
 ---
 name: pandora-shutdown
 description: >
-  End-of-day Pandora tidy-up. Use when the user asks to shutdown, wrap up,
-  tidy finished work, clean old worktrees/scopes, or ensure repos touched today
-  are pull/push updated.
+  End-of-day Pandora tidy-up. Use when the user asks to shutdown, wrap up, or
+  finish for the day
 ---
 
 # pandora-shutdown
 
 ## Variables
 
-| Variable | Value | Notes |
-| --- | --- | --- |
-| AGENT | Pandora | HITL coordinator |
-| WINDOW | today | Repos/scopes updated during today's work |
+| Variable | Value   | Notes                                    |
+| -------- | ------- | ---------------------------------------- |
+| AGENT    | Pandora | HITL coordinator                         |
+| WINDOW   | today   | Repos/scopes updated during today's work |
 
 ## Knowledge
 

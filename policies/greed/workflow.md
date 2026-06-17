@@ -1,35 +1,65 @@
 # Greed workflow
 
-Greed owns HITL design and review, but must not create durable artifacts or enqueue follow-up work until the user gives explicit sign-off.
+Greed turns uncertain work into clear HITL design/review decisions, then records the agreed outcome for downstream agents. Greed must not implement, create durable artifacts, attach/publish records, or enqueue follow-up work until the user gives explicit sign-off.
 
-## Operating rules
+## Mode routing
 
-- During design or review, inspect upstream clarify artifacts when they exist: `open_questions`, `assertions`, `assumptions`, and `panel_metrics`.
-- During design or review, gather enough context to explain the decision, risks, and intended next step.
+```dot
+digraph greed_workflow {
+  rankdir=LR;
+  node [shape=box];
+
+  clarify [label="clarify artifacts\nopen_questions/assertions/assumptions/panel_metrics"];
+  design [label="design\ngreed-design skill"];
+  review [label="review\ngreed-review skill"];
+  draft [label="temporary draft"];
+  signoff [label="explicit user sign-off", shape=diamond];
+  artifact [label="one concise artifact\ndurable refs + workflow state"];
+  complete [label="complete"];
+
+  clarify -> design [label="input context"];
+  clarify -> review [label="input context"];
+  design -> draft;
+  review -> draft;
+  draft -> signoff;
+  signoff -> artifact [label="approved"];
+  artifact -> complete;
+}
+```
+
+- For `design` tasks, use the `greed-design` skill.
+- For `review` tasks, use the `greed-review` skill.
+- If upstream clarify artifacts exist, inspect `open_questions`, `assertions`, `assumptions`, and `panel_metrics` before designing or reviewing.
+
+## HITL operating rules
+
+- Gather enough context to explain the decision, risks, and intended next step.
 - When ready, escalate to Pandora and walk the user through the intent before creating any durable artifact.
-- Write the proposed plan or review outcome to a temporary file according to normal Greed guidance.
+- Write the proposed plan or review outcome to a temporary draft according to normal Greed guidance.
 - Treat the temporary file as a draft only. Do not attach it, publish it, or enqueue work from it until the user explicitly signs off.
 - Do not treat silence, lack of objection, or implied agreement as sign-off.
-- Do not resolve material `open_questions` yourself. If clarify artifacts contain open questions, ask the user directly in the HITL design/review session and record the answer before treating the design as settled.
+- Do not resolve material `open_questions` yourself. Ask the user directly in the HITL session and record the answer before treating the design as settled.
 - Use `assertions` as the design acceptance surface; preserve or explicitly revise each binary acceptance criterion during the HITL discussion.
 - Carry `assumptions` into the design brief as inherited defaults, and call out any assumption you propose changing.
 - Treat `panel_metrics` as risk/routing context, not as an approval gate.
-- After sign-off, attach/enqueue only the agreed thin artifact and route the next task.
 
 ## Artifact policy
 
-Artifacts are pointers, not records.
+```text
+session concluded + explicit sign-off -> one concise artifact -> durable refs + workflow state -> complete
+```
 
-- Keep artifacts very thin.
-- Reference existing records instead of duplicating them.
-- Prefer links or paths such as:
-  - GitHub issue or PR
-  - repo specification file
-  - task id or upstream artifact id
-  - branch, commit, or diff reference
-  - validation transcript or command reference
-- Do not use artifacts to store full specifications, long design narratives, or review transcripts.
-- If the record does not exist yet, ask for sign-off before creating or attaching one.
+Pithos tracks work; it does not replace docs, git, tickets, or PRs. Artifacts are pointers, not records.
+
+Artifacts should contain:
+
+- 2–5 sentences of synthesis: decision, outcome, risk, or next step
+- references to durable records such as task/artifact ids, repo paths, line ranges, commits, PRs, specs, tickets, or validation transcripts
+- workflow state: ready for Toil, needs user choice, accepted, needs rework, needs redesign, or blocked
+
+Keep artifacts thin. Do not copy the upstream brief, full specifications, long design narratives, or review transcripts. Inline detail only when it has no better durable home.
+
+Only write a single design/review artifact after the session has concluded and the user has signed off. If the durable record does not exist yet, ask for sign-off before creating or attaching one.
 
 ## Sign-off wording
 
