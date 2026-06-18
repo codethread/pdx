@@ -2,55 +2,27 @@
 # Bundled Agent prompts stay fixed; this file selects user-owned harnesses and thin policies.
 # Validate rendering with `pandora-spawn preview` before reopening the box.
 
-#: policies {{{
+#: work/md access policy + rule {{{
+
+# this is just to give global scopes access to the nested AGENTS.md
+[policies.work-md]
+allow_empty = true
+files = ["/Users/adamhall/pb/AGENTS.md"]
+
+[[rules]]
+path = "/Users/adamhall/.pdx"
+policy.add = ["work-md"]
+agents.pandora.harness.argv.add = ["--skill", "/Users/adamhall/pb/adam.hall/workfiles/pdx/pandora-skills"]
+
+#: }}
+
+#: pandora {{{
 
 [policies.pandora-workflow]
 files = ["policies/pandora/workflow.md"]
 
-[policies.toil-workflow]
-files = ["policies/toil/workflow.md"]
-
-[policies.greed-workflow]
-files = ["policies/greed/workflow.md"]
-
-[policies.war-workflow]
-files = ["policies/war/workflow.md"]
-
-[policies.envy-workflow]
-files = ["policies/envy/workflow.md"]
-
-# Work-private overlays. `allow_empty = true` lets this personal repo render on
-# machines where the private workfiles checkout is absent, while still loading
-# the policies on the work machine.
-[policies.work-perkbox]
-allow_empty = true
-files = ["/Users/adamhall/work/me/workfiles/pdx/policies/shared/perkbox.md"]
-
-[policies.work-repo-default-branch-guard]
-allow_empty = true
-files = ["/Users/adamhall/work/me/workfiles/pdx/policies/shared/repo-default-branch-guard.md"]
-
-[policies.work-envy-glab-triage]
-allow_empty = true
-files = ["/Users/adamhall/work/me/workfiles/pdx/policies/envy/glab-triage-label.md"]
-
-#: }}}
-#: agents {{{
-
 [agents.pandora.policy]
 add = ["pandora-workflow"]
-
-[agents.toil.policy]
-add = ["toil-workflow"]
-
-[agents.greed.policy]
-add = ["greed-workflow"]
-
-[agents.war.policy]
-add = ["war-workflow"]
-
-[agents.envy.policy]
-add = ["envy-workflow"]
 
 [agents.pandora.harness]
 kind = "pi"
@@ -65,6 +37,16 @@ argv.add = [
   "--skill", "$PDX_USER_DATA_DIR/pandora-skills"
 ]
 
+#: }}
+
+#: toil {{{
+
+[policies.toil-workflow]
+files = ["policies/toil/workflow.md"]
+
+[agents.toil.policy]
+add = ["toil-workflow"]
+
 [agents.toil.harness]
 kind = "pi"
 model = "openai-codex/gpt-5.4:high"
@@ -74,6 +56,19 @@ argv.add = [
   "--agent", "main",
   "--skill", "$PDX_USER_DATA_DIR/toil-skills"
 ]
+
+# [[rules]]
+# path_glob = "~/pb/**"
+
+#: }}
+
+#: greed {{{
+
+[policies.greed-workflow]
+files = ["policies/greed/workflow.md"]
+
+[agents.greed.policy]
+add = ["greed-workflow"]
 
 [agents.greed.harness]
 kind = "pi"
@@ -86,6 +81,20 @@ argv.add = [
   "--skill", "$PDX_USER_DATA_DIR/greed-skills"
 ]
 
+[[rules]]
+path_glob = "~/pb/**"
+agents.greed.harness.model = "anthropic/claude-opus-4-6:high"
+
+#: }}
+
+#: war {{{
+
+[policies.war-workflow]
+files = ["policies/war/workflow.md"]
+
+[agents.war.policy]
+add = ["war-workflow"]
+
 [agents.war.harness]
 kind = "pi"
 model = "openai-codex/gpt-5.4:high"
@@ -94,6 +103,16 @@ argv.add = [
   "--name", "War",
   "--agent", "main"
 ]
+
+#: }}
+
+#: envy {{{
+
+[policies.envy-workflow]
+files = ["policies/envy/workflow.md"]
+
+[agents.envy.policy]
+add = ["envy-workflow"]
 
 [agents.envy.harness]
 kind = "pi"
@@ -105,28 +124,12 @@ argv.add = [
   "--extension", "$PDX_USER_DATA_DIR/envy-plugin",
 ]
 
-#: }}}
-#: rules {{{
-
-[[rules]]
-path = "/Users/adamhall/.pdx"
-agents.pandora.harness.argv.add = ["--skill", "/Users/adamhall/work/me/workfiles/pdx/pandora-skills"]
-agents.pandora.policy.add = ["work-perkbox"]
-
-[[rules]]
-path_glob = "~/work/**"
-policy.add = ["work-perkbox"]
-agents.toil.policy.add = ["work-repo-default-branch-guard"]
-agents.greed.policy.add = ["work-repo-default-branch-guard"]
-agents.envy.policy.add = ["work-envy-glab-triage"]
-agents.greed.harness.model = "anthropic/claude-opus-4-6:high"
+[policies.work-envy-glab-triage]
+allow_empty = true
+files = ["/Users/adamhall/pb/adam.hall/workfiles/pdx/policies/envy/glab-triage-label.md"]
 
 [[rules]]
 path_glob = "~/pb/**"
-policy.add = ["work-perkbox"]
-agents.toil.policy.add = ["work-repo-default-branch-guard"]
-agents.greed.policy.add = ["work-repo-default-branch-guard"]
 agents.envy.policy.add = ["work-envy-glab-triage"]
-agents.greed.harness.model = "anthropic/claude-opus-4-6:high"
 
-#: }}}
+#: }}
