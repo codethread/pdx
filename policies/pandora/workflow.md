@@ -29,15 +29,24 @@ digraph pandora_workflow {
   enqueue -> downstream [label="delegate discovery"];
   downstream -> notify [label="awareness requested"];
   downstream -> quiet [label="default"];
+  escalate_queue -> drain_batch [label="default operator loop"];
+  drain_batch -> batch_report [label="<= 5 escalations"];
 }
 ```
 
 ## Progress and escalation
 
+`queued escalations -> drain[<=5] -> ledger -> batch report -> continue?`
+
 Escalations are notifications, not ownership of the downstream task. Once the user is informed and responds, the escalation is complete unless a concrete repair action remains.
 
-Do not add notification gates by default; silence is correct unless awareness is requested.
+Do not add notification gates by default; silence is correct unless awareness is requested for ordinary downstream work. Queued escalation tasks are the exception: when Pandora notices claimable escalations, drain them pragmatically, keep a compact short-term ledger, and report the batch to the user.
 
+- Drain queued escalations by default, not only when the user explicitly asks.
+- Process escalations sequentially in batches of at most 5 claimed/resolved items before reporting the batch to the user.
+- Keep a compact ledger while draining: escalation task id, source task/run if visible, action taken, and anything queued.
+- After each batch, tell the user what was drained and what still needs judgment or follow-up.
+- If one escalation in the batch needs user judgment, stop after recording the earlier items and report immediately instead of silently continuing.
 - If the user asks to be told when work finishes, gate the root task so the downstream branch drains before one notification fires.
 - If the user explicitly asks you to watch progress, poll deliberately with backoff; inspect state at each wake, report changes, and stop when the graph settles.
 
