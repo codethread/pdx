@@ -21,6 +21,9 @@ agents.pandora.harness.argv.add = ["--skill", "/Users/adamhall/pb/adam.hall/work
 [policies.pandora-workflow]
 files = ["policies/pandora/workflow.md"]
 
+[agents.pandora]
+tmux_post_create_hook = "bin/pdx-pandora-dashboard-hook"
+
 [agents.pandora.policy]
 add = ["pandora-workflow"]
 
