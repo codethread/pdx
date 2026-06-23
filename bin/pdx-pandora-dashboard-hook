@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+from collections import Counter, defaultdict, deque
+from datetime import datetime
+from pathlib import Path
+
+REFRESH_SECONDS = 10
+WINDOW_NAME = "pandora-dashboard"
+DONE_STATUSES = {"done", "cancelled"}
+STATUS_ORDER = {
+    "claimed": 0,
+    "running": 1,
+    "queued": 2,
+    "failed": 3,
+    "done": 4,
+    "cancelled": 5,
+}
+STATUS_COLORS = {
+    "claimed": "\033[33m",
+    "running": "\033[35m",
+    "queued": "\033[36m",
+    "failed": "\033[31m",
+    "done": "\033[32m",
+    "cancelled": "\033[2;31m",
+}
+DIM = "\033[2m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Create or render the Pandora tmux dashboard window."
+    )
+    parser.add_argument("--loop", action="store_true", help="Run the dashboard loop.")
+    parser.add_argument("--once", action="store_true", help="Render one snapshot and exit.")
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=REFRESH_SECONDS,
+        help=f"Refresh interval in seconds (default: {REFRESH_SECONDS}).",
+    )
+    return parser.parse_args()
+
+
+def shell(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, capture_output=True, text=True, check=True)
+
+
+def graph_snapshot() -> dict:
+    result = shell(["pithos", "graph", "inspect", "--all", "--since", "today", "--json"])
+    payload = json.loads(result.stdout)
+    return payload["graph"]
+
+
+def parse_ts(value: str | None) -> datetime:
+    if not value:
+        return datetime.min
+    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+
+
+def component_label(component_nodes: list[dict], after_outgoing: dict[str, set[str]]) -> str:
+    node_ids = {node["id"] for node in component_nodes}
+    roots = [
+        node
+        for node in component_nodes
+        if not (after_outgoing[node["id"]] & node_ids)
+    ]
+    if not roots:
+        roots = component_nodes
+    root = min(roots, key=lambda node: parse_ts(node.get("created_at")))
+    return root.get("preview") or root.get("title") or root["id"]
+
+
+def build_components(graph: dict) -> list[dict]:
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    node_map = {node["id"]: node for node in nodes}
+    adjacency: dict[str, set[str]] = defaultdict(set)
+    after_outgoing: dict[str, set[str]] = defaultdict(set)
+
+    for edge in edges:
+        left = edge.get("from_task_id")
+        right = edge.get("to_task_id")
+        if left not in node_map or right not in node_map:
+            continue
+        adjacency[left].add(right)
+        adjacency[right].add(left)
+        if edge.get("kind") == "after":
+            after_outgoing[left].add(right)
+
+    components = []
+    seen: set[str] = set()
+    for node in nodes:
+        node_id = node["id"]
+        if node_id in seen:
+            continue
+        queue = deque([node_id])
+        seen.add(node_id)
+        component_ids = []
+        while queue:
+            current = queue.popleft()
+            component_ids.append(current)
+            for neighbor in adjacency[current]:
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    queue.append(neighbor)
+        component_nodes = [node_map[item] for item in component_ids]
+        counts = Counter(node["status"] for node in component_nodes)
+        active_nodes = [node for node in component_nodes if node["status"] not in DONE_STATUSES]
+        active_nodes.sort(
+            key=lambda node: (
+                STATUS_ORDER.get(node["status"], 99),
+                parse_ts(node.get("created_at")),
+            )
+        )
+        latest = max(
+            component_nodes,
+            key=lambda node: max(
+                parse_ts(node.get("created_at")), parse_ts(node.get("completed_at"))
+            ),
+        )
+        components.append(
+            {
+                "label": component_label(component_nodes, after_outgoing),
+                "nodes": component_nodes,
+                "counts": counts,
+                "active_nodes": active_nodes,
+                "latest_at": max(
+                    parse_ts(latest.get("created_at")), parse_ts(latest.get("completed_at"))
+                ),
+            }
+        )
+
+    components.sort(
+        key=lambda component: (
+            0 if component["active_nodes"] else 1,
+            -component["latest_at"].timestamp() if component["latest_at"] != datetime.min else 0,
+        )
+    )
+    return components
+
+
+def color(text: str, status: str | None = None, *, bold: bool = False, dim: bool = False) -> str:
+    prefix = ""
+    if bold:
+        prefix += BOLD
+    if dim:
+        prefix += DIM
+    if status:
+        prefix += STATUS_COLORS.get(status, "")
+    return f"{prefix}{text}{RESET}" if prefix else text
+
+
+def status_counts(counts: Counter) -> str:
+    parts = []
+    for status in sorted(counts, key=lambda item: STATUS_ORDER.get(item, 99)):
+        parts.append(color(f"{status}:{counts[status]}", status))
+    return " ".join(parts)
+
+
+def truncate(text: str, width: int) -> str:
+    if width <= 0 or len(text) <= width:
+        return text
+    if width <= 1:
+        return text[:width]
+    return text[: width - 1] + "…"
+
+
+def render_component(component: dict, width: int) -> list[str]:
+    lines = []
+    header = f"{component['label']}  [{status_counts(component['counts'])}]"
+    lines.append(color(header, bold=True))
+
+    if component["active_nodes"]:
+        for node in component["active_nodes"]:
+            status = node["status"]
+            capability = node.get("capability", "?")
+            title = truncate(node.get("title") or node.get("preview") or node["id"], width - 20)
+            body = f"  {status:<8} {capability:<8} {title}"
+            lines.append(color(body, status))
+    else:
+        latest = max(component["nodes"], key=lambda node: parse_ts(node.get("completed_at")))
+        summary = truncate(latest.get("title") or latest.get("preview") or latest["id"], width - 14)
+        lines.append(color(f"  done      {summary}", "done", dim=True))
+
+    return lines
+
+
+def render_dashboard() -> str:
+    graph = graph_snapshot()
+    nodes = graph.get("nodes", [])
+    counts = Counter(node["status"] for node in nodes)
+    width = shutil.get_terminal_size((120, 40)).columns
+    header = (
+        f"Pandora daily dashboard  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  "
+        f"[{status_counts(counts)}]"
+    )
+    lines = [color(header, bold=True), ""]
+    for component in build_components(graph):
+        lines.extend(render_component(component, width))
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def tmux_target_candidates(target: str) -> list[str]:
+    if ":" in target or target.startswith(("%", "@")):
+        return [target]
+    return [target, f"{target}:"]
+
+
+
+def create_window() -> int:
+    target = os.environ.get("PDX_PANDORA_TMUX_TARGET")
+    if not target:
+        print("PDX_PANDORA_TMUX_TARGET is required", file=sys.stderr)
+        return 2
+
+    script = str(Path(__file__).resolve())
+    command = " ".join(
+        [
+            f"PDX_PANDORA_TMUX_TARGET={shlex.quote(target)}",
+            shlex.quote(script),
+            "--loop",
+        ]
+    )
+
+    last_error = None
+    for candidate in tmux_target_candidates(target):
+        result = subprocess.run(
+            ["tmux", "new-window", "-d", "-t", candidate, "-n", WINDOW_NAME, command],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            print(f"Created tmux window {WINDOW_NAME!r} in target {target}")
+            return 0
+        last_error = result.stderr.strip() or result.stdout.strip() or f"tmux new-window failed for {candidate}"
+
+    print(last_error or "tmux new-window failed", file=sys.stderr)
+    return 1
+
+
+def loop(interval: int, once: bool) -> int:
+    while True:
+        sys.stdout.write("\033[2J\033[H")
+        sys.stdout.write(render_dashboard())
+        sys.stdout.flush()
+        if once:
+            return 0
+        time.sleep(interval)
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        if args.loop or args.once:
+            return loop(args.interval, args.once)
+        return create_window()
+    except KeyboardInterrupt:
+        return 130
+    except subprocess.CalledProcessError as error:
+        print(error.stderr or error.stdout or str(error), file=sys.stderr)
+        return error.returncode or 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
