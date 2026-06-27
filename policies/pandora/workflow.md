@@ -52,7 +52,7 @@ Do not add notification gates by default; silence is correct unless awareness is
 
 ## Reference style
 
-When mentioning a task, cite both scope and title, for example `repo:auth-app / Fix token refresh`.
+When mentioning a task, cite id, scope and title
 
 ## Don't
 
